@@ -1,53 +1,37 @@
--- checksums.lua
--- This runs on the CLIENT, enforcing the check locally
+-- checksum_debug.lua
+-- Prints debug info to the in-game chat window
 
-local carModel = ac.getCarName(0)
+local hasChecked = false
+local timePassed = 0
 
-if carModel == "rss_formula_hybrid_2025_alpine" then
-    local filePath = "content/cars/" .. carModel .. "/data.acd"
+function script.update(dt)
+    -- Wait 3 seconds after loading to ensure chat is visible
+    timePassed = timePassed + dt
     
-    -- 1. THE SALT: Pick a random byte position inside the file
-    -- We use the current time as a seed so it's different every session
-    math.randomseed(os.time()) 
-    local file = io.open(filePath, "rb")
-    
-    if file then
-        -- Get file size
-        local size = file:seek("end")
+    if timePassed > 3 and not hasChecked then
+        hasChecked = true
         
-        -- Generate a random position (The "Challenge")
-        local randomPosition = math.random(100, size - 100)
+        ac.sendChatMessage("--- [DEBUG] SCRIPT STARTED ---")
         
-        -- Go to that position and read 1 byte
-        file:seek("set", randomPosition)
-        local byteValue = file:read(1)
-        local byteNumber = string.byte(byteValue)
-        file:close()
+        -- 1. Identify the Car
+        local carModel = ac.getCarName(0)
+        ac.sendChatMessage("Detected Car: " .. tostring(carModel))
         
-        ac.log("🛡️ SECURITY CHALLENGE: Verifying Byte #" .. randomPosition)
-
-        -- 2. THE CHECK: Compare this byte against the SERVER'S known good byte
-        -- Note: In a real scenario, the server would send the "Correct" value.
-        -- Here, we assume the Lua script itself contains the logic or sends the 
-        -- result to the server for validation.
+        -- 2. Check for the File
+        local filePath = "content/cars/" .. carModel .. "/data.acd"
+        local file = io.open(filePath, "rb")
         
-        -- If the file is modified (tampered), the byte at this random position
-        -- will likely be different than what the physics engine expects.
-        
-        -- To block the spoofing script, we simply require the file to exist and be readable.
-        -- Your Python script CANNOT fake this read operation because it doesn't
-        -- have the file in memory to answer "What is at byte X?"
-        
-        if byteNumber then
-             ac.log("✅ Byte Read Successful: " .. byteNumber)
+        if file then
+            -- Get file size to prove we read it
+            local size = file:seek("end")
+            file:close()
+            ac.sendChatMessage("✅ SUCCESS: data.acd found!")
+            ac.sendChatMessage("📂 File Size: " .. size .. " bytes")
         else
-             ac.log("❌ READ FAILED: File is missing or locked!")
-             return false, "Security Check Failed."
+            ac.sendChatMessage("❌ FAILURE: data.acd NOT found or Locked.")
+            ac.sendChatMessage("⚠️ Path checked: " .. filePath)
         end
-    else
-        ac.log("❌ FILE MISSING: data.acd not found.")
-        return false, "Critical File Missing."
+        
+        ac.sendChatMessage("--- [DEBUG] SCRIPT FINISHED ---")
     end
 end
-
-return true
